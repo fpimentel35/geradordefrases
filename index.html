@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Conteúdo</title>
+    <meta name="description" content="Gere conteúdo completo para redes sociais com IA. Crie frases, hashtags e imagens personalizadas com seu logo em diversos formatos.">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Playfair+Display:wght@700&family=Roboto+Mono&family=Dancing+Script&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-serif { font-family: 'Playfair Display', serif; }
+        .font-mono { font-family: 'Roboto Mono', monospace; }
+        .font-script { font-family: 'Dancing Script', cursive; }
+
+        .fade-in { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4f46e5;
+            border-radius: 50%;
+            width: 40px; height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #canvas-container { width: 100%; max-width: 500px; margin: auto; }
+        canvas { width: 100%; height: auto; border-radius: 0.5rem; }
+
+        /* Estilos para funcionalidades Premium bloqueadas */
+        .premium-feature {
+            position: relative;
+            transition: opacity 0.3s;
+        }
+        .premium-feature.locked {
+            opacity: 0.6;
+            pointer-events: none; /* Previne cliques nos elementos de baixo */
+        }
+        .premium-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(249, 250, 251, 0.8); /* bg-gray-50 com transparência */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.5rem;
+            text-align: center;
+            cursor: pointer;
+            pointer-events: all; /* Garante que o overlay seja clicável */
+            z-index: 10;
+        }
+        .premium-overlay-content {
+            padding: 1rem;
+            background: rgba(17, 24, 39, 0.85); /* bg-gray-900 com transparência */
+            color: white;
+            border-radius: 0.5rem;
+            transform: scale(0.95);
+            transition: transform 0.2s;
+        }
+        .premium-overlay:hover .premium-overlay-content {
+            transform: scale(1);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 flex flex-col min-h-screen">
+    
+    <!-- Cabeçalho com Login/Status do Plano -->
+    <header class="bg-white shadow-md">
+        <div class="container mx-auto px-6 py-3 flex justify-between items-center">
+            <div>
+                <h1 class="text-xl md:text-2xl font-bold text-indigo-700">Gerador de Conteúdo</h1>
+                <p class="text-sm text-gray-600">Crie posts incríveis para suas redes sociais.</p>
+            </div>
+            <div id="auth-container" class="text-right">
+                <!-- Conteúdo preenchido via JS (Login, Logout, Status do Plano) -->
+            </div>
+        </div>
+    </header>
+
+    <!-- Conteúdo Principal (mostrado apenas após o login) -->
+    <div id="main-content" class="hidden">
+        <div class="w-full max-w-4xl mx-auto bg-white rounded-xl shadow-lg mt-6">
+            <!-- Abas de Navegação -->
+            <div class="border-b border-gray-200">
+                <nav class="flex -mb-px" aria-label="Tabs">
+                    <button id="tab-gerador" class="w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm text-indigo-600 border-indigo-500">Gerador</button>
+                    <button id="tab-historico" class="w-1/2 py-4 px-1 text-center border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">Histórico</button>
+                </nav>
+            </div>
+            <!-- Conteúdo do Gerador -->
+            <div id="content-gerador">
+                <!-- TODO: Colar conteúdo do <main> da versão anterior aqui -->
+            </div>
+            <!-- Conteúdo do Histórico -->
+            <div id="content-historico" class="hidden">
+                 <!-- TODO: Colar conteúdo do Histórico da versão anterior aqui -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tela de Login -->
+    <div id="login-screen" class="container mx-auto p-8 text-center mt-16">
+        <h2 class="text-3xl font-bold mb-4">Bem-vindo!</h2>
+        <p class="mb-8 text-gray-600 max-w-md mx-auto">Faça login para começar a gerar frases, hashtags e imagens incríveis para suas redes sociais.</p>
+        <button id="loginBtn" class="bg-blue-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105">
+            Entrar com Google (Simulação)
+        </button>
+    </div>
+
+    <!-- Modal Premium -->
+    <div id="premiumModal" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden items-center justify-center p-4 fade-in">
+        <div class="bg-white rounded-lg shadow-xl p-8 w-full max-w-md text-center relative">
+            <button id="closePremiumModal" class="absolute top-2 right-4 text-3xl text-gray-400 hover:text-gray-700">&times;</button>
+            <h3 class="text-2xl font-bold text-indigo-700 mb-4">✨ Desbloqueie o Plano Premium!</h3>
+            <p class="text-gray-600 mb-6">Tenha acesso a todas as funcionalidades e crie posts ainda mais profissionais.</p>
+            <ul class="text-left space-y-2 mb-8">
+                <li class="flex items-center"><span class="text-green-500 mr-2">✔</span> Geração de Imagens Ilimitada</li>
+                <li class="flex items-center"><span class="text-green-500 mr-2">✔</span> Upload do seu Logo</li>
+                <li class="flex items-center"><span class="text-green-500 mr-2">✔</span> Fundo com Imagens Personalizadas</li>
+                <li class="flex items-center"><span class="text-green-500 mr-2">✔</span> Todos os Formatos (Story, Feed)</li>
+            </ul>
+            <button id="upgradeBtn" class="w-full bg-green-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-600 transition text-lg transform hover:scale-105">
+                Assinar Premium (Simulação)
+            </button>
+        </div>
+    </div>
+    
+    <!-- Footer -->
+    <footer class="bg-white text-center py-4 mt-8 shadow-inner">
+        <p class="text-gray-600">Copyright &copy; <span id="ano"></span> Gerador de Conteúdo. Todos os direitos reservados.</p>
+    </footer>
+
+    <script>
+    // --- ESTADO INICIAL DA APLICAÇÃO ---
+    let currentUser = null; // Simula o usuário logado
+    let userPlan = 'free'; // 'free' ou 'premium'
+
+    // --- INICIALIZAÇÃO QUANDO O DOM ESTÁ PRONTO ---
+    document.addEventListener('DOMContentLoaded', () => {
+        // Seleciona todos os elementos do DOM uma única vez
+        const elements = {
+            loginScreen: document.getElementById('login-screen'),
+            mainContent: document.getElementById('main-content'),
+            loginBtn: document.getElementById('loginBtn'),
+            authContainer: document.getElementById('auth-container'),
+            premiumModal: document.getElementById('premiumModal'),
+            upgradeBtn: document.getElementById('upgradeBtn'),
+            closePremiumModalBtn: document.getElementById('closePremiumModal'),
+            anoSpan: document.getElementById('ano'),
+        };
+
+        // Carrega o conteúdo principal do gerador
+        loadMainContent();
+
+        // --- LÓGICA DE AUTENTICAÇÃO (SIMULADA) ---
+        const signIn = () => {
+            currentUser = {
+                name: "Usuário Teste",
+                email: "teste@example.com"
+            };
+            userPlan = 'free';
+            updateUIForAuthState();
+        };
+
+        const signOut = () => {
+            currentUser = null;
+            userPlan = 'free';
+            updateUIForAuthState();
+        };
+
+        const upgradeToPremium = () => {
+            userPlan = 'premium';
+            elements.premiumModal.classList.replace('flex', 'hidden');
+            updateUIForAuthState();
+        };
+
+        // --- LÓGICA DE ATUALIZAÇÃO DA INTERFACE ---
+        const updateUIForAuthState = () => {
+            if (currentUser) {
+                // Logado
+                elements.loginScreen.classList.add('hidden');
+                elements.mainContent.classList.remove('hidden');
+                
+                let planBadge = userPlan === 'premium' 
+                    ? `<span class="bg-green-100 text-green-800 text-xs font-semibold mr-2 px-2.5 py-0.5 rounded-full">PREMIUM</span>`
+                    : `<button id="openPremiumModalBtn" class="bg-yellow-100 text-yellow-800 text-xs font-semibold mr-2 px-2.5 py-0.5 rounded-full hover:bg-yellow-200">FAZER UPGRADE</button>`;
+                
+                elements.authContainer.innerHTML = `
+                    <div class="flex items-center justify-end">
+                        <div>
+                            <p class="font-semibold text-sm">${currentUser.name}</p>
+                            ${planBadge}
+                        </div>
+                        <button id="logoutBtn" class="ml-4 text-sm text-gray-600 hover:text-indigo-600">Sair</button>
+                    </div>`;
+
+                document.getElementById('logoutBtn').addEventListener('click', signOut);
+                const openModalBtn = document.getElementById('openPremiumModalBtn');
+                if (openModalBtn) {
+                    openModalBtn.addEventListener('click', () => elements.premiumModal.classList.replace('hidden', 'flex'));
+                }
+            } else {
+                // Deslogado
+                elements.loginScreen.classList.remove('hidden');
+                elements.mainContent.classList.add('hidden');
+                elements.authContainer.innerHTML = '';
+            }
+            lockPremiumFeatures();
+        };
+        
+        const lockPremiumFeatures = () => {
+            const isPremium = userPlan === 'premium';
+            const premiumFeatures = document.querySelectorAll('.premium-feature');
+            
+            premiumFeatures.forEach(el => {
+                let overlay = el.querySelector('.premium-overlay');
+                if (!isPremium) {
+                    el.classList.add('locked');
+                    if (!overlay) {
+                        overlay = document.createElement('div');
+                        overlay.className = 'premium-overlay';
+                        overlay.innerHTML = `
+                            <div class="premium-overlay-content">
+                                <h4 class="font-bold">✨ Função Premium</h4>
+                                <p class="text-sm mt-1">Clique para fazer upgrade</p>
+                            </div>`;
+                        overlay.addEventListener('click', () => elements.premiumModal.classList.replace('hidden', 'flex'));
+                        el.appendChild(overlay);
+                    }
+                    overlay.classList.remove('hidden');
+                } else {
+                    el.classList.remove('locked');
+                    if (overlay) {
+                        overlay.classList.add('hidden');
+                    }
+                }
+            });
+        };
+
+        // --- CARREGA O CONTEÚDO DO GERADOR DINAMICAMENTE ---
+        function loadMainContent() {
+             // O conteúdo do gerador é inserido aqui para manter o HTML mais limpo.
+             // Este é o mesmo conteúdo das versões anteriores.
+            const mainHTML = `
+                <div class="w-full max-w-4xl mx-auto bg-white rounded-xl shadow-lg">
+                    <div class="border-b border-gray-200">
+                        <nav class="flex -mb-px" aria-label="Tabs"><button id="tab-gerador" class="w-1/2 py-4 px-1 text-center border-b-2 font-medium text-sm text-indigo-600 border-indigo-500">Gerador</button><button id="tab-historico" class="w-1/2 py-4 px-1 text-center border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">Histórico</button></nav>
+                    </div>
+                    <div id="content-gerador" class="p-6 md:p-8 space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div><label for="termo" class="block text-lg font-medium text-gray-700 mb-2">1. Palavra-chave</label><input type="text" id="termo" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition" placeholder="Ex: café, produtividade"></div>
+                            <div><label for="categoria" class="block text-lg font-medium text-gray-700 mb-2">2. Categoria</label><select id="categoria" class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-indigo-500 transition"><option value="motivacional">Motivacional</option><option value="vendas">Vendas / CTA</option><option value="produto_digital">Produto Digital</option><option value="storytelling">Storytelling</option><option value="bem_estar">Bem-estar / Saúde</option><option value="engracado">Engraçado</option><option value="reflexao">Reflexão</option></select></div>
+                        </div>
+                        <button id="gerarBtn" class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 active:bg-indigo-800 transition-transform transform hover:scale-105 flex items-center justify-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M11.94.876a1.535 1.535 0 0 1 2.121 2.121l-1.06 1.062a.5.5 0 0 0 .353.854h.448a.5.5 0 0 1 .498.558l-.078.43a.5.5 0 0 0 .44.555h.353a.5.5 0 0 1 .498.557l-.078.43a.5.5 0 0 0 .44.555h.448a.5.5 0 0 1 .498.558l-.078.43a.5.5 0 0 0 .44.555h.353a.5.5 0 0 1 .498.557l-.078.43a.5.5 0 0 0 .44.555h.448a.5.5 0 0 1 .498.558l-.078.43a.5.5 0 0 0 .44.555h.353a.5.5 0 0 1 0 .995h-.353a.5.5 0 0 0-.44.555l.078.43a.5.5 0 0 1-.498.558h-.448a.5.5 0 0 0-.44.555l.078.43a.5.5 0 0 1-.498.557h-.353a.5.5 0 0 0-.44.555l.078.43a.5.5 0 0 1-.498.557h-.448a.5.5 0 0 0-.44.555l.078.43a.5.5 0 0 1-.498.557h-.353a.5.5 0 0 1-.498-.557l.078-.43a.5.5 0 0 0-.44-.555h-.448a.5.5 0 0 1-.498-.558l.078-.43a.5.5 0 0 0-.44-.555h-.353a.5.5 0 0 1-.498-.557l.078-.43a.5.5 0 0 0-.44-.555h-.448a.5.5 0 0 1-.498-.558l.078-.43a.5.5 0 0 0-.44-.555h-.353a.5.5 0 0 1 0-.995h.353a.5.5 0 0 0 .44-.555l-.078-.43a.5.5 0 0 1 .498-.557h.448a.5.5 0 0 0 .44-.555l-.078-.43a.5.5 0 0 1 .498-.558h.353a.5.5 0 0 0 .44-.555l-.078-.43a.5.5 0 0 1 .498-.557h.448a.5.5 0 0 0 .44-.555l-.078-.43a.5.5 0 0 1 .498-.557h.353a.5.5 0 0 0 .354-.854zm-9.88 9.88a1.535 1.535 0 0 1-2.121-2.121l1.06-1.062a.5.5 0 0 0-.353-.854H.25a.5.5 0 0 1-.498-.558l.078-.43a.5.5 0 0 0-.44-.555H.032a.5.5 0 0 1-.498-.557l.078-.43a.5.5 0 0 0-.44-.555H.25a.5.5 0 0 1 0-.995h-.078a.5.5 0 0 0-.44.555l-.078-.43a.5.5 0 0 1 .498-.557h.448a.5.5 0 0 0 .44-.555l-.078-.43a.5.5 0 0 1 .498-.558h.353a.5.5 0 0 0 .354-.854l-1.06-1.062a1.535 1.535 0 0 1 2.121 2.121L2.12 11.88a.5.5 0 0 0 .353.854h.448a.5.5 0 0 1 .498.558l-.078.43a.5.5 0 0 0 .44.555h.353a.5.5 0 0 1 .498.557l-.078.43a.5.5 0 0 0 .44.555h.078a.5.5 0 0 1 0 .995h-.078a.5.5 0 0 0-.44.555l.078.43a.5.5 0 0 1-.498.558h-.448a.5.5 0 0 0-.44.555l.078.43a.5.5 0 0 1-.498.557h-.353a.5.5 0 0 0-.354.854zM8 5a.5.5 0 0 1 .5.5v2h2a.5.5 0 0 1 0 1h-2v2a.5.5 0 0 1-1 0v-2h-2a.5.5 0 0 1 0-1h2v-2A.5.5 0 0 1 8 5"></path></svg>Gerar Frase</button>
+                        <div id="loading" class="hidden flex-col items-center justify-center space-y-2"><div class="loader"></div><p class="text-gray-600">Aguarde, a frase está sendo criada...</p></div>
+                        <div id="erroMsg" class="text-red-500 text-center font-medium hidden"></div>
+                        <div id="resultado" class="border-t-2 border-dashed border-gray-200 pt-6 space-y-6 hidden fade-in">
+                            <div><h3 class="text-xl font-bold text-gray-800 mb-2">Conteúdo Gerado:</h3><div class="bg-gray-50 p-4 rounded-lg space-y-3"><p id="fraseGerada" class="text-lg"></p><p id="hashtagsGeradas" class="text-indigo-600 font-medium text-sm"></p></div></div>
+                            <div class="flex flex-col sm:flex-row gap-3"><button id="copiarBtn" class="flex-1 bg-gray-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-700 transition">Copiar Texto</button></div>
+                            <div class="premium-feature border-t border-gray-200 pt-6 space-y-4"><h3 class="text-xl font-bold text-gray-800">Crie sua Imagem:</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start"><div class="space-y-4"><div><label class="block text-sm font-medium text-gray-700 mb-2">Formato</label><div id="format-selector" class="grid grid-cols-3 gap-2"><button data-format="1:1" class="format-btn bg-indigo-600 text-white p-2 rounded-lg text-sm font-semibold">Feed (1:1)</button><button data-format="9:16" class="format-btn bg-gray-200 p-2 rounded-lg text-sm font-semibold">Story (9:16)</button><button data-format="16:9" class="format-btn bg-gray-200 p-2 rounded-lg text-sm font-semibold">Horizontal (16:9)</button></div></div><div id="canvas-container"><canvas id="canvas"></canvas></div></div><div class="space-y-4"><div class="border-b border-gray-200"><nav id="custom-tabs" class="flex -mb-px" aria-label="Tabs"><button data-tab="fundo" class="custom-tab-btn w-1/3 py-3 px-1 text-center border-b-2 font-medium text-sm text-indigo-600 border-indigo-500">Fundo</button><button data-tab="texto" class="custom-tab-btn w-1/3 py-3 px-1 text-center border-b-2 border-transparent font-medium text-sm text-gray-500">Texto</button><button data-tab="logo" class="custom-tab-btn w-1/3 py-3 px-1 text-center border-b-2 border-transparent font-medium text-sm text-gray-500">Logo</button></nav></div><div id="tab-content-fundo" class="space-y-4"><div class="flex items-center justify-center gap-4"><button id="bg-type-color" class="bg-type-btn flex-1 py-2 px-3 rounded-lg text-sm font-semibold bg-indigo-100 text-indigo-700">Cor Sólida</button><button id="bg-type-image" class="bg-type-btn flex-1 py-2 px-3 rounded-lg text-sm font-semibold bg-gray-100">Imagem</button></div><div id="bg-color-controls"><label for="corFundo" class="block text-sm font-medium text-gray-700">Cor de Fundo</label><input type="color" id="corFundo" value="#4f46e5" class="w-full h-10 p-1 border border-gray-300 rounded-lg cursor-pointer"></div><div id="bg-image-controls" class="hidden space-y-4"><label for="bgUpload" class="w-full cursor-pointer bg-gray-100 hover:bg-gray-200 text-center py-2 px-3 rounded-lg border border-gray-300 text-sm font-semibold">Carregar Imagem de Fundo</label><input type="file" id="bgUpload" class="hidden" accept="image/png, image/jpeg"><div><label for="overlayOpacity" class="block text-sm font-medium text-gray-700">Intensidade da Sobreposição</label><input type="range" id="overlayOpacity" min="0" max="1" step="0.05" value="0.3" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"></div></div></div><div id="tab-content-texto" class="hidden space-y-4"><div><label for="corTexto" class="block text-sm font-medium text-gray-700">Cor do Texto</label><input type="color" id="corTexto" value="#FFFFFF" class="w-full h-10 p-1 border border-gray-300 rounded-lg cursor-pointer"></div><div><label for="fonteTexto" class="block text-sm font-medium text-gray-700">Fonte</label><select id="fonteTexto" class="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white"><option value="Inter">Padrão (Sans-serif)</option><option value="Playfair Display">Elegante (Serif)</option><option value="Dancing Script">Manuscrita</option><option value="Roboto Mono">Moderna (Mono)</option></select></div></div><div id="tab-content-logo" class="hidden space-y-4"><div class="flex items-center gap-2"><label for="logoUpload" class="flex-1 cursor-pointer bg-gray-100 hover:bg-gray-200 text-center py-2 px-3 rounded-lg border border-gray-300 text-sm font-semibold">Carregar Logo</label><input type="file" id="logoUpload" class="hidden" accept="image/png, image/jpeg"><button id="removerLogoBtn" class="bg-gray-100 p-2 rounded-lg hover:bg-gray-200" title="Remover Logo"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash3" viewBox="0 0 16 16"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm-2.5 1a.5.5 0 0 1 .5.5V12a.5.5 0 0 1-1 0V4a.5.5 0 0 1 .5-.5m3 0a.5.5 0 0 1 .5.5V12a.5.5 0 0 1-1 0V4a.5.5 0 0 1 .5-.5"/></svg></button></div></div><button id="downloadBtn" class="w-full bg-orange-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-orange-600 transition">Baixar Imagem</button></div></div></div>
+                        </div>
+                    </div>
+                    <div id="content-historico" class="p-6 md:p-8 hidden">
+                        <div class="flex justify-between items-center mb-4"><h2 class="text-2xl font-bold text-gray-800">Seu Histórico</h2><button id="abrirModalLimpar" class="bg-red-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-600 text-sm transition">Limpar Tudo</button></div>
+                        <div id="historicoContainer" class="space-y-4 max-h-[60vh] overflow-y-auto pr-2"><p id="historicoVazio" class="text-gray-500 text-center py-8">Você ainda não gerou nenhum conteúdo.</p></div>
+                    </div>
+                    <div id="confirmModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center p-4"><div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm"><h3 class="text-lg font-bold text-gray-900">Confirmar Ação</h3><p class="text-gray-600 mt-2">Tem certeza que deseja apagar todo o seu histórico? Esta ação não pode ser desfeita.</p><div class="mt-6 flex justify-end gap-3"><button id="cancelClearBtn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 font-semibold">Cancelar</button><button id="confirmClearBtn" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold">Apagar</button></div></div></div>
+                </div>
+            `;
+            // Injeta o HTML e depois inicializa a lógica do gerador
+            document.getElementById('main-content').innerHTML = mainHTML;
+            initializeGenerator();
+        }
+
+        // --- INICIALIZAÇÃO E EVENTOS ---
+        elements.anoSpan.textContent = new Date().getFullYear();
+        elements.loginBtn.addEventListener('click', signIn);
+        elements.upgradeBtn.addEventListener('click', upgradeToPremium);
+        elements.closePremiumModalBtn.addEventListener('click', () => elements.premiumModal.classList.replace('flex', 'hidden'));
+        
+        // Inicializa a UI no estado deslogado
+        updateUIForAuthState();
+    });
+    
+    // =========================================================================
+    // --- CÓDIGO DO GERADOR DE CONTEÚDO (LÓGICA PRINCIPAL) ---
+    // Esta função é chamada DEPOIS que o HTML do gerador é injetado na página.
+    // =========================================================================
+    function initializeGenerator() {
+        const genElements = {
+            termoInput: document.getElementById('termo'),
+            categoriaSelect: document.getElementById('categoria'),
+            gerarBtn: document.getElementById('gerarBtn'),
+            resultadoDiv: document.getElementById('resultado'),
+            erroMsgDiv: document.getElementById('erroMsg'),
+            loadingDiv: document.getElementById('loading'),
+            tabGerador: document.getElementById('tab-gerador'),
+            tabHistorico: document.getElementById('tab-historico'),
+            contentGerador: document.getElementById('content-gerador'),
+            contentHistorico: document.getElementById('content-historico'),
+            fraseGeradaP: document.getElementById('fraseGerada'),
+            hashtagsGeradasP: document.getElementById('hashtagsGeradas'),
+            copiarBtn: document.getElementById('copiarBtn'),
+            canvas: document.getElementById('canvas'),
+            formatSelector: document.getElementById('format-selector'),
+            downloadBtn: document.getElementById('downloadBtn'),
+            customTabs: document.getElementById('custom-tabs'),
+            tabContents: {
+                fundo: document.getElementById('tab-content-fundo'),
+                texto: document.getElementById('tab-content-texto'),
+                logo: document.getElementById('tab-content-logo'),
+            },
+            bgTypeColorBtn: document.getElementById('bg-type-color'),
+            bgTypeImageBtn: document.getElementById('bg-type-image'),
+            bgColorControls: document.getElementById('bg-color-controls'),
+            bgImageControls: document.getElementById('bg-image-controls'),
+            corFundoInput: document.getElementById('corFundo'),
+            bgUploadInput: document.getElementById('bgUpload'),
+            overlayOpacityInput: document.getElementById('overlayOpacity'),
+            corTextoInput: document.getElementById('corTexto'),
+            fonteTextoSelect: document.getElementById('fonteTexto'),
+            logoUploadInput: document.getElementById('logoUpload'),
+            removerLogoBtn: document.getElementById('removerLogoBtn'),
+            historicoContainer: document.getElementById('historicoContainer'),
+            historicoVazioMsg: document.getElementById('historicoVazio'),
+            abrirModalLimpar: document.getElementById('abrirModalLimpar'),
+            confirmModal: document.getElementById('confirmModal'),
+            cancelClearBtn: document.getElementById('cancelClearBtn'),
+            confirmClearBtn: document.getElementById('confirmClearBtn'),
+        };
+        const ctx = genElements.canvas.getContext('2d');
+
+        // Estado do Gerador
+        let historico = JSON.parse(localStorage.getItem('geradorAiHistorico_v5')) || [];
+        let logoSrc = localStorage.getItem('geradorAiLogo_v5') || null;
+        let bgImageSrc = localStorage.getItem('geradorAiBgImage_v5') || null;
+        let activeFormat = '1:1';
+        let backgroundType = 'color';
+        let logoImage = null;
+        let backgroundImage = null;
+
+        // Funções do Gerador...
+        // ... (todo o código das funções do gerador, como chamarGeminiAPI, atualizarCanvas, etc.)
+        // As funções abaixo são as mesmas da versão anterior, com pequenas correções.
+
+        async function chamarGeminiAPI() {
+            const termo = genElements.termoInput.value.trim();
+            const categoria = genElements.categoriaSelect.options[genElements.categoriaSelect.selectedIndex].text;
+            if (!termo) { mostrarErro('Por favor, insira uma palavra-chave.'); return; }
+            
+            mostrarLoading(true);
+            const prompt = `Crie um conteúdo para redes sociais sobre "${termo}" na categoria "${categoria}". Gere uma frase principal e 5 hashtags relevantes. Retorne um JSON com chaves "frase" (string) e "hashtags" (array de strings). Exemplo de hashtag: #sucesso.`;
+            const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
+
+            try {
+                const apiKey = ""; // Chave fornecida pelo Canvas
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                if (!response.ok) throw new Error(`Erro na API: ${response.statusText}`);
+                const result = await response.json();
+                const text = result.candidates[0].content.parts[0].text;
+                const dados = JSON.parse(text);
+                
+                exibirResultados(dados.frase, dados.hashtags);
+                const visualSettings = {
+                    corFundo: genElements.corFundoInput.value, corTexto: genElements.corTextoInput.value, fonteTexto: genElements.fonteTextoSelect.value,
+                    formato: activeFormat, backgroundType: backgroundType, bgImageSrc: backgroundType === 'image' ? bgImageSrc : null,
+                    overlayOpacity: genElements.overlayOpacityInput.value
+                };
+                salvarNoHistorico(dados.frase, dados.hashtags, visualSettings);
+            } catch (error) {
+                console.error("Erro ao chamar a API Gemini:", error);
+                mostrarErro("Desculpe, não foi possível gerar o conteúdo. Tente novamente.");
+            } finally {
+                mostrarLoading(false);
+            }
+        }
+        
+        function exibirResultados(frase, hashtags, visualSettings = null) {
+            genElements.fraseGeradaP.textContent = frase;
+            genElements.hashtagsGeradasP.textContent = hashtags.join(' ');
+            
+            if (visualSettings) {
+                genElements.corFundoInput.value = visualSettings.corFundo;
+                genElements.corTextoInput.value = visualSettings.corTexto;
+                genElements.fonteTextoSelect.value = visualSettings.fonteTexto;
+                setFormat(visualSettings.formato);
+                setBgType(visualSettings.backgroundType || 'color');
+                genElements.overlayOpacityInput.value = visualSettings.overlayOpacity || 0.3;
+                if(visualSettings.backgroundType === 'image' && visualSettings.bgImageSrc) {
+                     bgImageSrc = visualSettings.bgImageSrc;
+                     const img = new Image();
+                     img.crossOrigin = 'anonymous';
+                     img.onload = () => { backgroundImage = img; atualizarCanvas(); };
+                     img.src = bgImageSrc;
+                }
+            }
+            
+            genElements.resultadoDiv.classList.remove('hidden');
+            atualizarCanvas();
+        }
+
+        function mostrarLoading(mostrar) {
+            genElements.loadingDiv.classList.toggle('hidden', !mostrar);
+            genElements.resultadoDiv.classList.toggle('hidden', mostrar);
+            genElements.erroMsgDiv.classList.add('hidden');
+            genElements.gerarBtn.disabled = mostrar;
+            genElements.gerarBtn.classList.toggle('opacity-50', mostrar);
+        }
+
+        function mostrarErro(mensagem) {
+            genElements.erroMsgDiv.textContent = mensagem;
+            genElements.erroMsgDiv.classList.remove('hidden');
+        }
+
+        function setFormat(format) {
+            activeFormat = format;
+            document.querySelectorAll('.format-btn').forEach(btn => {
+                btn.classList.toggle('bg-indigo-600', btn.dataset.format === format);
+                btn.classList.toggle('text-white', btn.dataset.format === format);
+                btn.classList.toggle('bg-gray-200', btn.dataset.format !== format);
+            });
+            atualizarCanvas();
+        }
+
+        function setBgType(type) {
+            backgroundType = type;
+            const isColor = type === 'color';
+            genElements.bgColorControls.classList.toggle('hidden', !isColor);
+            genElements.bgImageControls.classList.toggle('hidden', isColor);
+            
+            genElements.bgTypeColorBtn.classList.toggle('bg-indigo-100', isColor);
+            genElements.bgTypeColorBtn.classList.toggle('text-indigo-700', isColor);
+            genElements.bgTypeColorBtn.classList.toggle('bg-gray-100', !isColor);
+            genElements.bgTypeImageBtn.classList.toggle('bg-indigo-100', !isColor);
+            genElements.bgTypeImageBtn.classList.toggle('text-indigo-700', !isColor);
+            genElements.bgTypeImageBtn.classList.toggle('bg-gray-100', isColor);
+            atualizarCanvas();
+        }
+
+        function atualizarCanvas() {
+            const frase = genElements.fraseGeradaP.textContent;
+            if (!frase) return;
+            const [ratioW, ratioH] = activeFormat.split(':').map(Number);
+            const baseWidth = 1080;
+            const canvas = genElements.canvas;
+            canvas.width = baseWidth;
+            canvas.height = (baseWidth * ratioH) / ratioW;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            if (backgroundType === 'image' && backgroundImage && backgroundImage.complete) {
+                const imgRatio = backgroundImage.width / backgroundImage.height;
+                const canvasRatio = canvas.width / canvas.height;
+                let sWidth, sHeight, sx, sy;
+                if (imgRatio > canvasRatio) { sHeight = backgroundImage.height; sWidth = sHeight * canvasRatio; sx = (backgroundImage.width - sWidth) / 2; sy = 0; } 
+                else { sWidth = backgroundImage.width; sHeight = sWidth / canvasRatio; sx = 0; sy = (backgroundImage.height - sHeight) / 2; }
+                ctx.drawImage(backgroundImage, sx, sy, sWidth, sHeight, 0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "#000000";
+                ctx.globalAlpha = parseFloat(genElements.overlayOpacityInput.value);
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.globalAlpha = 1.0;
+            } else {
+                ctx.fillStyle = genElements.corFundoInput.value;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+            
+            const palavras = frase.split(' ');
+            const maxWidth = canvas.width * 0.85;
+            let fontSize = Math.floor(canvas.width / 15);
+            let linhas, textBlockHeight, lineHeight;
+            do {
+                ctx.font = `bold ${fontSize}px "${genElements.fonteTextoSelect.value}"`;
+                linhas = []; let linha = '';
+                palavras.forEach(p => {
+                    if (ctx.measureText(linha + p).width > maxWidth && linha.length > 0) { linhas.push(linha.trim()); linha = ''; }
+                    linha += p + ' ';
+                });
+                linhas.push(linha.trim());
+                lineHeight = fontSize * 1.2;
+                textBlockHeight = linhas.length * lineHeight;
+                if (textBlockHeight > canvas.height * 0.8) fontSize -= 2; else break;
+            } while (fontSize > 10);
+            
+            let logoHeight = 0, logoWidth = 0;
+            const logoPadding = canvas.height * 0.05;
+            if (logoImage && logoImage.complete) {
+                const maxLogoHeight = canvas.height * 0.12;
+                logoHeight = maxLogoHeight;
+                logoWidth = (logoImage.width * logoHeight) / logoImage.height;
+            }
+            
+            const totalContentHeight = textBlockHeight + (logoHeight > 0 ? logoPadding + logoHeight : 0);
+            let currentY = (canvas.height - totalContentHeight) / 2;
+            
+            ctx.fillStyle = genElements.corTextoInput.value;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            linhas.forEach(linha => { ctx.fillText(linha, canvas.width / 2, currentY); currentY += lineHeight; });
+            if (logoImage && logoImage.complete) {
+                currentY += logoPadding;
+                ctx.drawImage(logoImage, (canvas.width - logoWidth) / 2, currentY, logoWidth, logoHeight);
+            }
+        }
+        
+        function baixarImagem() {
+            const link = document.createElement('a');
+            link.download = 'post-gerado.png';
+            link.href = genElements.canvas.toDataURL('image/png');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        const handleFileUpload = (event, isLogo) => {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const src = e.target.result;
+                const img = new Image();
+                img.onload = () => {
+                    if (isLogo) { logoImage = img; logoSrc = src; localStorage.setItem('geradorAiLogo_v5', src); } 
+                    else { backgroundImage = img; bgImageSrc = src; localStorage.setItem('geradorAiBgImage_v5', src); }
+                    atualizarCanvas();
+                };
+                img.src = src;
+            };
+            reader.readAsDataURL(file);
+        };
+        
+        function removerLogo() {
+            logoSrc = null; logoImage = null; localStorage.removeItem('geradorAiLogo_v5');
+            genElements.logoUploadInput.value = ''; atualizarCanvas();
+        }
+
+        function salvarNoHistorico(frase, hashtags, visual) {
+            historico.unshift({ id: Date.now(), frase, hashtags, visual });
+            if (historico.length > 50) historico.pop();
+            localStorage.setItem('geradorAiHistorico_v5', JSON.stringify(historico));
+        }
+
+        function renderizarHistorico() {
+            genElements.historicoContainer.innerHTML = '';
+            genElements.historicoVazioMsg.classList.toggle('hidden', historico.length > 0);
+            historico.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'bg-gray-50 p-4 rounded-lg border';
+                div.innerHTML = `<p class="font-semibold">${item.frase}</p><p class="text-sm text-indigo-600 mt-2">${item.hashtags.join(' ')}</p><div class="text-right mt-2"><button data-id="${item.id}" class="reutilizar-btn text-sm font-bold text-indigo-600 hover:underline">Reutilizar</button></div>`;
+                genElements.historicoContainer.appendChild(div);
+            });
+        }
+        
+        function reutilizarDoHistorico(e) {
+            if (e.target.classList.contains('reutilizar-btn')) {
+                const id = Number(e.target.dataset.id);
+                const item = historico.find(h => h.id === id);
+                if (item) { exibirResultados(item.frase, item.hashtags, item.visual); trocarAba('gerador'); }
+            }
+        }
+        
+        function limparHistorico() {
+            historico = []; localStorage.removeItem('geradorAiHistorico_v5');
+            renderizarHistorico(); fecharModal();
+        }
+        function abrirModal() { genElements.confirmModal.classList.replace('hidden', 'flex'); }
+        function fecharModal() { genElements.confirmModal.classList.replace('flex', 'hidden'); }
+
+        const trocarAba = (aba) => {
+            const isGerador = aba === 'gerador';
+            genElements.contentGerador.classList.toggle('hidden', !isGerador);
+            genElements.contentHistorico.classList.toggle('hidden', isGerador);
+            genElements.tabGerador.classList.toggle('text-indigo-600', isGerador);
+            genElements.tabGerador.classList.toggle('border-indigo-500', isGerador);
+            genElements.tabHistorico.classList.toggle('text-indigo-600', !isGerador);
+            genElements.tabHistorico.classList.toggle('border-indigo-500', !isGerador);
+            if (!isGerador) renderizarHistorico();
+        };
+
+        const trocarCustomTab = (tab) => {
+            Object.keys(genElements.tabContents).forEach(key => {
+                const isSelected = key === tab;
+                genElements.tabContents[key].classList.toggle('hidden', !isSelected);
+                const btn = document.querySelector(`.custom-tab-btn[data-tab="${key}"]`);
+                btn.classList.toggle('text-indigo-600', isSelected);
+                btn.classList.toggle('border-indigo-500', isSelected);
+                btn.classList.toggle('text-gray-500', !isSelected);
+                btn.classList.toggle('border-transparent', !isSelected);
+            });
+        };
+        
+        function copiarTexto() {
+            const textoParaCopiar = `${genElements.fraseGeradaP.textContent}\n\n${genElements.hashtagsGeradasP.textContent}`;
+            const feedbackCopiado = () => {
+                const originalText = genElements.copiarBtn.textContent;
+                genElements.copiarBtn.textContent = 'Copiado!';
+                genElements.copiarBtn.classList.add('bg-green-500', 'hover:bg-green-500');
+                setTimeout(() => {
+                    genElements.copiarBtn.textContent = originalText;
+                    genElements.copiarBtn.classList.remove('bg-green-500', 'hover:bg-green-500');
+                }, 2000);
+            };
+            const copiarFallback = () => {
+                const textArea = document.createElement("textarea");
+                textArea.value = textoParaCopiar;
+                textArea.style.position = "fixed"; textArea.style.top = "-9999px"; textArea.style.left = "-9999px";
+                document.body.appendChild(textArea);
+                textArea.focus(); textArea.select();
+                try {
+                    document.execCommand('copy');
+                    feedbackCopiado();
+                } catch (err) { alert('Não foi possível copiar o texto.'); }
+                document.body.removeChild(textArea);
+            }
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(textoParaCopiar).then(feedbackCopiado).catch(copiarFallback);
+            } else {
+                copiarFallback();
+            }
+        }
+
+        // Event Listeners do Gerador
+        genElements.gerarBtn.addEventListener('click', chamarGeminiAPI);
+        genElements.copiarBtn.addEventListener('click', copiarTexto);
+        [genElements.corFundoInput, genElements.corTextoInput, genElements.fonteTextoSelect, genElements.overlayOpacityInput].forEach(el => el.addEventListener('input', atualizarCanvas));
+        genElements.downloadBtn.addEventListener('click', baixarImagem);
+        genElements.logoUploadInput.addEventListener('change', (e) => handleFileUpload(e, true));
+        genElements.bgUploadInput.addEventListener('change', (e) => handleFileUpload(e, false));
+        genElements.removerLogoBtn.addEventListener('click', removerLogo);
+        genElements.formatSelector.addEventListener('click', (e) => e.target.matches('.format-btn') && setFormat(e.target.dataset.format));
+        genElements.tabGerador.addEventListener('click', () => trocarAba('gerador'));
+        genElements.tabHistorico.addEventListener('click', () => trocarAba('historico'));
+        genElements.customTabs.addEventListener('click', (e) => e.target.matches('.custom-tab-btn') && trocarCustomTab(e.target.dataset.tab));
+        genElements.bgTypeColorBtn.addEventListener('click', () => setBgType('color'));
+        genElements.bgTypeImageBtn.addEventListener('click', () => setBgType('image'));
+        genElements.historicoContainer.addEventListener('click', reutilizarDoHistorico);
+        genElements.abrirModalLimpar.addEventListener('click', abrirModal);
+        genElements.cancelClearBtn.addEventListener('click', fecharModal);
+        genElements.confirmClearBtn.addEventListener('click', limparHistorico);
+
+        // Inicializa o estado do gerador
+        (function initGeneratorState() {
+            const loadImage = (src, isLogo) => {
+                if (!src) return;
+                const img = new Image();
+                img.crossOrigin = 'anonymous'; 
+                img.onload = () => {
+                    if (isLogo) logoImage = img; else backgroundImage = img;
+                    if(!genElements.resultadoDiv.classList.contains('hidden')) atualizarCanvas();
+                };
+                img.src = src;
+            };
+            loadImage(logoSrc, true);
+            loadImage(bgImageSrc, false);
+            renderizarHistorico();
+        })();
+    }
+</script>
+</body>
+</html>
