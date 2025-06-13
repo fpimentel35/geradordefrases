@@ -348,7 +348,6 @@
                     const text = result.candidates[0].content.parts[0].text;
                     const dados = JSON.parse(text);
 
-                    // CORREÇÃO: Garante que os dados existam antes de usar, evitando erros
                     const frase = dados.frase;
                     const hashtags = dados.hashtags || []; 
 
