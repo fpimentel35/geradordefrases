@@ -3,8 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerador de Conteúdo</title>
-    <meta name="description" content="Gere conteúdo completo para redes sociais com IA. Crie frases, hashtags e imagens personalizadas com seu logo em diversos formatos.">
+    
+    <!-- Título Principal e Metatags de SEO -->
+    <title>Gerador de Conteúdo com IA para Redes Sociais</title>
+    <meta name="description" content="Crie frases, hashtags e imagens incríveis para suas redes sociais com o poder da Inteligência Artificial. Gratuito e fácil de usar.">
+    <meta name="keywords" content="gerador de conteúdo, ia, inteligência artificial, gerador de frases, redes sociais, marketing de conteúdo, posts, instagram, seo">
+    <meta name="author" content="Seu Nome ou Empresa">
+
+    <!-- Favicon -->
+    <link rel="icon" href="https://placehold.co/32x32/4f46e5/ffffff?text=IA" type="image/png">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://seusite.com/">
+    <meta property="og:title" content="Gerador de Conteúdo com IA para Redes Sociais">
+    <meta property="og:description" content="Crie posts incríveis para suas redes sociais com o poder da Inteligência Artificial. Gratuito e fácil de usar.">
+    <meta property="og:image" content="https://placehold.co/1200x630/4f46e5/ffffff?text=Gerador+de+Conteúdo+IA">
+
+    <!-- Twitter Card -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://seusite.com/">
+    <meta property="twitter:title" content="Gerador de Conteúdo com IA para Redes Sociais">
+    <meta property="twitter:description" content="Crie posts incríveis para suas redes sociais com o poder da Inteligência Artificial. Gratuito e fácil de usar.">
+    <meta property="twitter:image" content="https://placehold.co/1200x630/4f46e5/ffffff?text=Gerador+de+Conteúdo+IA">
+
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Playfair+Display:wght@700&family=Roboto+Mono&family=Dancing+Script&display=swap" rel="stylesheet">
@@ -297,7 +319,6 @@
             mostrarLoading(true);
             const prompt = `Crie um conteúdo para redes sociais sobre "${termo}" na categoria "${categoria}". Gere uma frase principal e 5 hashtags relevantes. Retorne um JSON com chaves "frase" (string) e "hashtags" (array de strings). Exemplo de hashtag: #sucesso.`;
             
-            // CORREÇÃO: Adicionado o responseSchema para garantir o formato JSON
             const payload = {
                 contents: [{ role: "user", parts: [{ text: prompt }] }],
                 generationConfig: {
@@ -323,17 +344,26 @@
                 if (!response.ok) throw new Error(`Erro na API: ${response.statusText}`);
                 const result = await response.json();
                 
-                // Validação mais robusta da resposta da API
                 if (result.candidates && result.candidates[0].content && result.candidates[0].content.parts[0].text) {
                     const text = result.candidates[0].content.parts[0].text;
                     const dados = JSON.parse(text);
-                    exibirResultados(dados.frase, dados.hashtags);
+
+                    // CORREÇÃO: Garante que os dados existam antes de usar, evitando erros
+                    const frase = dados.frase;
+                    const hashtags = dados.hashtags || []; 
+
+                    if (!frase) {
+                        throw new Error("A resposta da IA não continha a chave 'frase'.");
+                    }
+
+                    exibirResultados(frase, hashtags);
+                    
                     const visualSettings = {
                         corFundo: elements.corFundoInput.value, corTexto: elements.corTextoInput.value, fonteTexto: elements.fonteTextoSelect.value,
                         formato: activeFormat, backgroundType: backgroundType, bgImageSrc: backgroundType === 'image' ? bgImageSrc : null,
                         overlayOpacity: elements.overlayOpacityInput.value
                     };
-                    salvarNoHistorico(dados.frase, dados.hashtags, visualSettings);
+                    salvarNoHistorico(frase, hashtags, visualSettings);
                 } else {
                     throw new Error("A resposta da IA não contém os dados esperados.");
                 }
