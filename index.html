@@ -338,7 +338,16 @@
             };
 
             try {
-                const apiKey = ""; // Chave fornecida pelo Canvas
+                // IMPORTANTE: Para hospedar em seu próprio site (GitHub Pages, etc.),
+                // você PRECISA criar sua própria chave de API no Google AI Studio.
+                // Visite: https://aistudio.google.com/app/apikey
+                // NÃO suba sua chave de API para um repositório PÚBLICO no GitHub.
+                const apiKey = "AIzaSyA5lKWgIz5_gTGSW3000K-o9wwf5YfLOyM"; // <-- COLE SUA CHAVE AQUI
+
+                if (apiKey === "SUA_CHAVE_API_AQUI") {
+                    throw new Error("API Key não configurada. Por favor, adicione sua chave da API do Google.");
+                }
+
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
                 const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 if (!response.ok) throw new Error(`Erro na API: ${response.statusText}`);
@@ -368,7 +377,7 @@
                 }
             } catch (error) {
                 console.error("Erro ao chamar a API Gemini:", error);
-                mostrarErro("Desculpe, não foi possível gerar o conteúdo. Tente novamente.");
+                mostrarErro(error.message);
             } finally {
                 mostrarLoading(false);
             }
