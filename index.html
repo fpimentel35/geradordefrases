@@ -296,7 +296,25 @@
             
             mostrarLoading(true);
             const prompt = `Crie um conteúdo para redes sociais sobre "${termo}" na categoria "${categoria}". Gere uma frase principal e 5 hashtags relevantes. Retorne um JSON com chaves "frase" (string) e "hashtags" (array de strings). Exemplo de hashtag: #sucesso.`;
-            const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
+            
+            // CORREÇÃO: Adicionado o responseSchema para garantir o formato JSON
+            const payload = {
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: {
+                            "frase": { "type": "STRING" },
+                            "hashtags": {
+                                "type": "ARRAY",
+                                "items": { "type": "STRING" }
+                            }
+                        },
+                        required: ["frase", "hashtags"]
+                    }
+                }
+            };
 
             try {
                 const apiKey = ""; // Chave fornecida pelo Canvas
@@ -304,16 +322,21 @@
                 const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                 if (!response.ok) throw new Error(`Erro na API: ${response.statusText}`);
                 const result = await response.json();
-                const text = result.candidates[0].content.parts[0].text;
-                const dados = JSON.parse(text);
                 
-                exibirResultados(dados.frase, dados.hashtags);
-                const visualSettings = {
-                    corFundo: elements.corFundoInput.value, corTexto: elements.corTextoInput.value, fonteTexto: elements.fonteTextoSelect.value,
-                    formato: activeFormat, backgroundType: backgroundType, bgImageSrc: backgroundType === 'image' ? bgImageSrc : null,
-                    overlayOpacity: elements.overlayOpacityInput.value
-                };
-                salvarNoHistorico(dados.frase, dados.hashtags, visualSettings);
+                // Validação mais robusta da resposta da API
+                if (result.candidates && result.candidates[0].content && result.candidates[0].content.parts[0].text) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    const dados = JSON.parse(text);
+                    exibirResultados(dados.frase, dados.hashtags);
+                    const visualSettings = {
+                        corFundo: elements.corFundoInput.value, corTexto: elements.corTextoInput.value, fonteTexto: elements.fonteTextoSelect.value,
+                        formato: activeFormat, backgroundType: backgroundType, bgImageSrc: backgroundType === 'image' ? bgImageSrc : null,
+                        overlayOpacity: elements.overlayOpacityInput.value
+                    };
+                    salvarNoHistorico(dados.frase, dados.hashtags, visualSettings);
+                } else {
+                    throw new Error("A resposta da IA não contém os dados esperados.");
+                }
             } catch (error) {
                 console.error("Erro ao chamar a API Gemini:", error);
                 mostrarErro("Desculpe, não foi possível gerar o conteúdo. Tente novamente.");
